@@ -12,12 +12,6 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const userExists = await this.usersRepo.findBy({
-      email: createUserDto.email,
-    });
-
-    if (userExists) throw new BadRequestException();
-
     const user = this.usersRepo.create({ ...createUserDto });
     return await this.usersRepo.save(user);
   }
@@ -28,6 +22,10 @@ export class UsersService {
 
   findOne(id: number) {
     return `This action returns a #${id} user`;
+  }
+
+  async findBy(email: string) {
+    return await this.usersRepo.findOneBy({ email });
   }
 
   // update(id: number, updateUserDto: UpdateUserDto) {
