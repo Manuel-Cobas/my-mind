@@ -1,11 +1,29 @@
 import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { JwtService } from '@nestjs/jwt';
+
+import { UsersService } from 'src/users/users.service';
+
+import { JwtPayloadDto } from './dto/jwt-token.dto';
 
 @Injectable()
 export class AuthService {
-  generateTokens(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  constructor(
+    private usersService: UsersService,
+    private jwtService: JwtService,
+  ) {}
+
+  async generateTokens(jwtPayload: JwtPayloadDto) {
+    const refreshToken = await this.jwtService.signAsync(jwtPayload, {
+      secret: 'refresh_secret',
+      expiresIn: '7d',
+    });
+
+    const accessToken = await this.jwtService.signAsync(jwtPayload, {
+      secret: 'access_secret',
+      expiresIn: '1h',
+    });
+
+    return { refreshToken, accessToken };
   }
 
   generateAccessToken() {
@@ -14,13 +32,5 @@ export class AuthService {
 
   revokeRefreshToken(id: number) {
     return `This action returns a #${id} auth`;
-  }
-
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
   }
 }
