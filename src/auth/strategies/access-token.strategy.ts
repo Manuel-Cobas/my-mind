@@ -1,5 +1,3 @@
-import { Request } from 'express';
-
 import {
   Injectable,
   UnauthorizedException,
@@ -8,19 +6,22 @@ import {
 
 import { JwtService } from '@nestjs/jwt';
 
-import { Strategy } from 'passport-jwt';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
+
+import type { CustomRequest } from 'types';
 
 @Injectable()
 export class AccessTokenStrategy extends PassportStrategy(Strategy) {
   constructor(private jwtService: JwtService) {
     super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: 'secret',
       passReqToCallback: true,
     });
   }
 
-  async validate(req: Request) {
+  async validate(req: CustomRequest) {
     try {
       const accessToken = req.cookies['access_token'];
       const decoded = await this.jwtService.verifyAsync(accessToken, {

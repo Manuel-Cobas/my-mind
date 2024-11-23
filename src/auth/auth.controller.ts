@@ -2,8 +2,11 @@ import {
   BadRequestException,
   Body,
   Controller,
+  HttpCode,
+  HttpStatus,
   InternalServerErrorException,
   Post,
+  Req,
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -12,7 +15,9 @@ import { AuthService } from './auth.service';
 import { UsersService } from 'src/users/users.service';
 
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
-import { Response } from 'express';
+
+import type { Response } from 'express';
+import type { CustomRequest } from 'types';
 
 @Controller('auth')
 export class AuthController {
@@ -22,6 +27,7 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @HttpCode(HttpStatus.CREATED)
   async register(@Body() createUserDto: CreateUserDto) {
     /** Esta funcion solo se limita a registrar al usuario */
     try {
@@ -35,8 +41,13 @@ export class AuthController {
     }
   }
 
-  @Post()
-  async login(@Res() res: Response, @Body() loginUserDto: CreateUserDto) {
+  @Post('login')
+  async login(
+    @Req()
+    req: CustomRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Body() loginUserDto: CreateUserDto,
+  ) {
     try {
       const user = await this.usersService.findBy(loginUserDto.email);
       if (!user) throw new UnauthorizedException();
@@ -52,15 +63,15 @@ export class AuthController {
       const tokens = await this.authService.generateTokens(jwtPayload);
 
       /* 
-        Isbo si el pana quiere gestionar los tokens 
-        en el cliente a su preferencia o se le ocurre una mejor idea
+      Isbo si el pana quiere gestionar los tokens 
+      en el cliente a su preferencia o se le ocurre una mejor idea
         para almacenar los tokens lo que haremos es quitar la declaracion 
         de cookies del codigo y retornar directamente como respuesta 
         la constante "tokens". Por ahora hacemos la delcaracion de las 
         cookies aqui para guardar los tokens y que en redis se almacene 
         la data decodificada.
-      */
-     
+        */
+
       res.cookie('refresh_token', tokens.refreshToken, {
         secure: false,
         httpOnly: false,
@@ -73,17 +84,11 @@ export class AuthController {
         sameSite: 'lax',
       });
 
+      req.session.user = { userId: user.id, email: user.email };
+
       return { access_token: tokens.accessToken };
     } catch (error) {
       throw new InternalServerErrorException();
     }
   }
-
-  // @Get()
-  // async tokensTest() {
-  //   return await this.authService.generateTokens({
-  //     userId: 'asafasdf',
-  //     email: 'mc@mc.com',
-  //   });
-  // }
 }
