@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   InternalServerErrorException,
@@ -9,6 +10,7 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 
 import { AuthService } from './auth.service';
@@ -18,6 +20,7 @@ import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 import type { Response } from 'express';
 import type { CustomRequest } from 'types';
+import { RefreshTokenGuard } from './guards/refresh-token.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -25,6 +28,12 @@ export class AuthController {
     private authService: AuthService,
     private usersService: UsersService,
   ) {}
+
+  @UseGuards(RefreshTokenGuard)
+  @Get('test')
+  test() {
+    return 'hello user :D';
+  }
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -55,36 +64,19 @@ export class AuthController {
       if (loginUserDto.password !== user.password)
         throw new UnauthorizedException();
 
-      const jwtPayload = {
-        userId: user.id,
+      const tokens = await this.authService.generateTokens({
+        sub: user.id,
         email: user.email,
-      };
-
-      const tokens = await this.authService.generateTokens(jwtPayload);
-
-      /* 
-      Isbo si el pana quiere gestionar los tokens 
-      en el cliente a su preferencia o se le ocurre una mejor idea
-        para almacenar los tokens lo que haremos es quitar la declaracion 
-        de cookies del codigo y retornar directamente como respuesta 
-        la constante "tokens". Por ahora hacemos la delcaracion de las 
-        cookies aqui para guardar los tokens y que en redis se almacene 
-        la data decodificada.
-        */
-
-      res.cookie('refresh_token', tokens.refreshToken, {
-        secure: false,
-        httpOnly: false,
-        sameSite: 'lax',
       });
+
+      req.session.refreshToken = tokens.refreshToken;
+      req.session.user = { sub: user.id, email: user.email };
 
       res.cookie('access_token', tokens.accessToken, {
         secure: false,
         httpOnly: false,
         sameSite: 'lax',
       });
-
-      req.session.user = { userId: user.id, email: user.email };
 
       return { access_token: tokens.accessToken };
     } catch (error) {

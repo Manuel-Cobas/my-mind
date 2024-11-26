@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 
 import { UsersService } from 'src/users/users.service';
 
-import { JwtPayloadDto } from './dto/jwt-token.dto';
+import { JwtPayloadDto } from './dto/jwt-payload.dto';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +15,7 @@ export class AuthService {
   async generateTokens(jwtPayload: JwtPayloadDto) {
     const refreshToken = await this.jwtService.signAsync(jwtPayload, {
       secret: 'refresh_secret',
-      expiresIn: '7d',
+      expiresIn: '10s',
     });
 
     const accessToken = await this.jwtService.signAsync(jwtPayload, {
