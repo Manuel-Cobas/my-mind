@@ -1,14 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 
-import { JwtService } from '@nestjs/jwt';
 import { AuthService } from '../auth.service';
 
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 
-import { jwtCookieExtractor } from '../jwt-extractors/jwt-cookie.extractor';
+import { refreshTokenExtractor } from '../jwt-extractors/refresh-token.extractor';
 
-import { JwtPayloadDto } from '../dto/jwt-token.dto';
+import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import type { CustomRequest } from 'types';
 
 @Injectable()
@@ -16,43 +15,48 @@ export class RefreshTokenStrategy extends PassportStrategy(
   Strategy,
   'refresh-token',
 ) {
-  constructor(
-    private authService: AuthService,
-    private jwtService: JwtService,
-  ) {
+  constructor(private authService: AuthService) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([jwtCookieExtractor]),
+      jwtFromRequest: ExtractJwt.fromExtractors([refreshTokenExtractor]),
       ignoreExpiration: true,
       passReqToCallback: true,
       secretOrKey: 'refresh_secret',
     });
   }
 
-  async validate(req: CustomRequest, payload: JwtPayloadDto) {
-    /* comparar el payload con el usuario actual */
-    const currentUser = req.session.user;
-    if (currentUser.sub !== payload.sub) {
+  async validate(req: CustomRequest, payload: RefreshTokenDto) {
+    try {
+      /* comparar el payload con el usuario actual */
+      const currentUser = req.session.user;
+      const currentTime = Date.now() / 1000;
+
+      if (currentUser.sub !== payload.sub) {
+        throw new UnauthorizedException();
+      }
+      /* verificar si la session caduco */
+      if (payload.exp > currentTime) {
+        return { userId: currentUser.sub, email: currentUser.email };
+      }
+      /* Generando tokens cuando la session caduque */
+      const tokens = await this.authService.generateTokens({
+        sub: payload.sub,
+        email: payload.email,
+      });
+
+      req.res.cookie('access_token', tokens.accessToken);
+
+      req.session.user = payload;
+      req.session.refreshToken = tokens.refreshToken;
+
+      return { userId: payload.sub, email: payload.email };
+    } catch (error) {
+      console.log('>>> ERROR: ', error);
+      /* 
+        puede que mas adelante hagamos una redireccion
+        a la pagina de login directamente y con un popup
+        le digamos que inicie session nuevamente
+      */
       throw new UnauthorizedException();
     }
-    /* verificar si el token caduco */
-    const refreshToken = req.session.refreshToken;
-    const check = await this.jwtService.verifyAsync(refreshToken, {
-      secret: 'refresh_secret',
-      ignoreExpiration: true,
-    });
-    console.log('check', check, payload);
-    if (check) {
-      return { userId: currentUser.sub, email: currentUser.email };
-    }
-    console.log('renovando session');
-    /* Generando tokens cuando la session caduque */
-    const tokens = await this.authService.generateTokens(payload);
-
-    req.res.cookie('access_token', tokens.accessToken);
-
-    req.session.user = payload;
-    req.session.refreshToken = tokens.refreshToken;
-
-    return { userId: payload.sub, email: payload.email };
   }
 }
