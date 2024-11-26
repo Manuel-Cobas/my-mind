@@ -12,9 +12,6 @@ export class User {
   @Column()
   password: string;
 
-  @Column('text', { default: [], array: true })
-  tokens: string[];
-
   @OneToMany(() => Profile, (profile) => profile.user)
   profiles: Profile[];
 }
