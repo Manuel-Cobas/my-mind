@@ -8,7 +8,6 @@ import {
 } from 'class-validator';
 
 export class ReadUserDto {
-  @IsString()
   @IsUUID()
   id: string;
 
@@ -16,8 +15,8 @@ export class ReadUserDto {
   email: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(4)
   @MaxLength(16)
-  @IsAlphanumeric()
+  // @IsAlphanumeric()
   password: string;
 }
