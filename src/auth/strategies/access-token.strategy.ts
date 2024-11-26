@@ -12,11 +12,14 @@ import { PassportStrategy } from '@nestjs/passport';
 import type { CustomRequest } from 'types';
 
 @Injectable()
-export class AccessTokenStrategy extends PassportStrategy(Strategy) {
+export class AccessTokenStrategy extends PassportStrategy(
+  Strategy,
+  'access-token',
+) {
   constructor(private jwtService: JwtService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: 'secret',
+      secretOrKey: 'access_secret',
       passReqToCallback: true,
     });
   }
